@@ -1,0 +1,8 @@
+# Cosas de sistema operativo / editor que no tienen nada que ver con el
+# proyecto en sí — cada subcarpeta (backend/) tiene además su propio
+# .gitignore con lo específico de esa parte (entorno virtual, .env, la
+# base de datos SQLite local, cachés de pytest...).
+.DS_Store
+.vscode/
+.idea/
+*.swp

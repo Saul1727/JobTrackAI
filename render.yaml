@@ -1,0 +1,31 @@
+# Render Blueprint: describes the backend service so Render can create it
+# automatically from this repository (Dashboard -> New -> Blueprint).
+services:
+  - type: web
+    name: jobtrack-ai
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      # Production runs without FastAPI's debug mode (which exposes
+      # tracebacks). CORS stays open ("*") regardless — see the comment in
+      # app/main.py for why that is safe without cookie-based auth.
+      - key: DEBUG
+        value: "false"
+      # Render generates a random value automatically on first deploy — see
+      # the startup check in app/main.py for why this matters.
+      - key: SECRET_KEY
+        generateValue: true
+      # sync: false — Render prompts for these once when the service is
+      # created from this Blueprint and never stores them in this file
+      # (which is committed to the repository). Paste the connection
+      # string from the Postgres provider (e.g. Neon) verbatim.
+      - key: DATABASE_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false

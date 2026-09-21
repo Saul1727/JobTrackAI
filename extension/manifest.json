@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "JobTrack AI",
+  "version": "0.3.0",
+  "description": "Envía la oferta de empleo abierta en la pestaña activa a JobTrack AI, con extracción automática por IA y cuentas de usuario.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["activeTab", "scripting", "notifications", "storage"],
+  "host_permissions": [
+    "http://127.0.0.1:8000/*",
+    "http://localhost:8000/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*"
+  ]
+}

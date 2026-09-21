@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JobTrack AI</title>
+<style>
+  :root { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  body { margin: 0; padding: 24px; background: #f5f5f7; color: #1a1a1a; }
+  h1 { font-size: 20px; margin: 0 0 16px; }
+  .barra { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  button, .boton {
+    padding: 8px 14px; border-radius: 6px; border: 1px solid #d0d0d5;
+    background: #fff; cursor: pointer; font-size: 13px; text-decoration: none;
+    color: #1a1a1a;
+  }
+  button.primario { background: #2563eb; color: #fff; border: none; }
+  button.peligro { color: #dc2626; }
+  .tabla-scroll { overflow-x: auto; background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0, 0, 0, .08); }
+  table { width: 100%; border-collapse: collapse; }
+  td input, td select { min-width: 90px; }
+  input.campo-ancho { min-width: 220px; }
+  input.fecha-atrasada { border-color: #dc2626; background: #fef2f2; color: #991b1b; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #eee; font-size: 13px; }
+  th { background: #fafafa; font-weight: 600; }
+  input, select { font-size: 13px; padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; background: #fff; }
+  #nuevaForm { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; background: #fff; padding: 12px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0, 0, 0, .08); }
+  #nuevaForm input { width: auto; flex: 1 1 140px; }
+  #vacio { padding: 24px; text-align: center; color: #888; font-size: 13px; }
+
+  #cvBaseBar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: #fff; padding: 12px; border-radius: 8px; margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .08); font-size: 13px;
+  }
+  #cvBaseEstado { color: #555; }
+  button.generar { color: #2563eb; border-color: #bfdbfe; }
+
+  /*
+    Progress indicator for the buttons that trigger an AI call (generate
+    or regenerate a CV): that call can take several seconds, so this
+    provides feedback that something is happening.
+  */
+  button.cargando {
+    display: inline-flex; align-items: center; gap: 6px;
+    cursor: wait; opacity: .7;
+  }
+  button.cargando::before {
+    content: ""; width: 11px; height: 11px; flex: none;
+    border: 2px solid currentColor; border-top-color: transparent;
+    border-radius: 50%; animation: girar .6s linear infinite;
+  }
+  @keyframes girar { to { transform: rotate(360deg); } }
+
+  dialog#dialogoCv {
+    width: min(720px, 92vw); max-height: 88vh; border: none; border-radius: 10px;
+    padding: 0; box-shadow: 0 10px 40px rgba(0, 0, 0, .2);
+  }
+  dialog#dialogoCv::backdrop { background: rgba(0, 0, 0, .4); }
+  .dialogo-cabecera {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px 20px; border-bottom: 1px solid #eee;
+  }
+  .dialogo-cabecera h2 { font-size: 16px; margin: 0; }
+  .dialogo-cuerpo { padding: 16px 20px; overflow-y: auto; max-height: calc(88vh - 130px); }
+  .dialogo-pie {
+    display: flex; justify-content: flex-end; gap: 8px;
+    padding: 14px 20px; border-top: 1px solid #eee;
+  }
+  .fila-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+  .campo label { display: block; font-size: 11px; color: #777; margin-bottom: 2px; }
+  .campo textarea { font-size: 13px; padding: 6px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; font-family: inherit; resize: vertical; }
+  fieldset.bloque { border: 1px solid #e5e5e5; border-radius: 6px; margin-bottom: 10px; padding: 10px; }
+  fieldset.bloque legend { font-size: 11px; color: #888; padding: 0 4px; }
+  h3.seccion-titulo { font-size: 13px; margin: 16px 0 8px; color: #333; }
+  h3.seccion-titulo:first-child { margin-top: 0; }
+
+  /* Login/registration screen, shown when there is no active session.
+     Full-screen with a centered card, since the app is multi-tenant and
+     nothing is shown until the user is identified. */
+  #pantallaLogin {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    margin: -24px; padding: 24px; box-sizing: border-box;
+  }
+  #tarjetaLogin {
+    background: #fff; padding: 28px; border-radius: 10px; width: min(360px, 100%);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+  }
+  #tarjetaLogin h2 { font-size: 17px; margin: 0 0 4px; }
+  #tarjetaLogin p.subtitulo { font-size: 13px; color: #777; margin: 0 0 18px; }
+  #tarjetaLogin .campo { margin-bottom: 12px; }
+  #tarjetaLogin label { display: block; font-size: 12px; color: #555; margin-bottom: 4px; }
+  #tarjetaLogin button[type="submit"] { width: 100%; padding: 10px; margin-top: 4px; }
+  #errorLogin { color: #dc2626; font-size: 13px; margin-top: 10px; min-height: 16px; }
+  #alternarModoLogin {
+    background: none; border: none; color: #2563eb; cursor: pointer;
+    font-size: 13px; padding: 0; margin-top: 14px; text-decoration: underline;
+  }
+
+  #cabeceraApp { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  #cabeceraApp h1 { margin: 0; }
+  #sesionActual { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #555; }
+</style>
+</head>
+<body>
+
+<!-- Pantalla de login/registro. Oculta en cuanto hay una sesión válida
+     (ver mostrarApp()/mostrarLogin() en el script de más abajo). -->
+<div id="pantallaLogin" hidden>
+  <div id="tarjetaLogin">
+    <h2 id="tituloLogin">Iniciar sesión</h2>
+    <p class="subtitulo" id="subtituloLogin">Entra con tu cuenta de JobTrack AI.</p>
+    <form id="formLogin">
+      <div class="campo">
+        <label for="loginEmail">Email</label>
+        <input type="email" id="loginEmail" required autocomplete="email" />
+      </div>
+      <div class="campo">
+        <label for="loginPassword">Contraseña</label>
+        <input type="password" id="loginPassword" required autocomplete="current-password" minlength="8" />
+      </div>
+      <button class="primario" type="submit" id="btnEnviarLogin">Entrar</button>
+    </form>
+    <div id="errorLogin"></div>
+    <button type="button" id="alternarModoLogin">¿No tienes cuenta? Regístrate</button>
+  </div>
+</div>
+
+<div id="appPrincipal" hidden>
+  <div id="cabeceraApp">
+    <h1>JobTrack AI</h1>
+    <div id="sesionActual">
+      <span id="emailSesion"></span>
+      <button type="button" id="btnCerrarSesion">Cerrar sesión</button>
+    </div>
+  </div>
+
+  <div class="barra">
+    <button class="primario" id="btnActualizar">Actualizar</button>
+    <button type="button" class="boton" id="btnExportarExcel">Descargar como Excel</button>
+  </div>
+
+  <!--
+    CV base: lo subes una vez (PDF) y la IA lo usa para generar una
+    versión personalizada por cada oferta, sin inventar experiencia que
+    no tengas de verdad — solo reordena/redacta lo que ya subiste aquí.
+  -->
+  <div id="cvBaseBar">
+    <strong>CV base:</strong>
+    <span id="cvBaseEstado">cargando…</span>
+    <input type="file" id="cvBaseArchivo" accept=".pdf,.docx" />
+    <button id="btnSubirCvBase">Subir / reemplazar</button>
+  </div>
+
+  <!--
+    Formulario para añadir una candidatura a mano (además de las que
+    lleguen desde la extensión de Chrome vía IA).
+  -->
+  <form id="nuevaForm">
+    <input name="empresa" placeholder="Empresa" required />
+    <input name="puesto" placeholder="Puesto" required />
+    <input name="url_oferta" placeholder="URL de la oferta" required />
+    <input name="ciudad" placeholder="Ciudad" />
+    <input name="salario" placeholder="Salario" />
+    <input name="fecha" type="date" required />
+    <button class="primario" type="submit">Añadir</button>
+  </form>
+
+  <div class="tabla-scroll">
+  <table>
+    <thead>
+      <tr>
+        <th>Empresa</th><th>Puesto</th><th>Ciudad</th><th>Salario</th>
+        <th>Tipo de contrato</th>
+        <th>Experiencia</th><th>Tecnologías</th><th>Idiomas</th>
+        <th>Modalidad</th><th>Detalle híbrido</th>
+        <th>Notas</th><th>Seguimiento</th>
+        <th>Estado</th><th>Fecha</th><th>Oferta</th><th></th>
+      </tr>
+    </thead>
+    <tbody id="filas"></tbody>
+  </table>
+  </div>
+  <div id="vacio" hidden>Todavía no hay ninguna candidatura guardada.</div>
+
+  <!--
+    Editor del CV personalizado de una candidatura. Se rellena al pulsar
+    "Generar CV" o "Editar CV" en una fila, y se guarda con PATCH — el
+    dialog nativo del navegador nos ahorra escribir un modal a mano.
+  -->
+  <dialog id="dialogoCv">
+    <form method="dialog">
+      <div class="dialogo-cabecera">
+        <h2 id="dialogoCvTitulo">CV personalizado</h2>
+        <button type="button" id="btnCerrarDialogo" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="dialogo-cuerpo">
+        <div class="fila-grid">
+          <div class="campo"><label>Nombre</label><input id="cvNombre" /></div>
+          <div class="campo"><label>Email</label><input id="cvEmail" /></div>
+          <div class="campo"><label>Teléfono</label><input id="cvTelefono" /></div>
+          <div class="campo"><label>Ubicación</label><input id="cvUbicacion" /></div>
+          <div class="campo"><label>LinkedIn</label><input id="cvLinkedin" /></div>
+        </div>
+
+        <h3 class="seccion-titulo">Resumen</h3>
+        <div class="campo"><textarea id="cvResumen" rows="3"></textarea></div>
+
+        <h3 class="seccion-titulo">Experiencia</h3>
+        <div id="cvExperiencia"></div>
+        <button type="button" id="btnAnadirExperiencia">+ Añadir experiencia</button>
+
+        <h3 class="seccion-titulo">Educación</h3>
+        <div id="cvEducacion"></div>
+        <button type="button" id="btnAnadirEducacion">+ Añadir educación</button>
+
+        <h3 class="seccion-titulo">Habilidades (separadas por comas)</h3>
+        <div class="campo"><input id="cvHabilidades" /></div>
+
+        <h3 class="seccion-titulo">Idiomas (separados por comas)</h3>
+        <div class="campo"><input id="cvIdiomas" /></div>
+      </div>
+      <div class="dialogo-pie">
+        <button type="button" id="btnRegenerarCv">Regenerar con IA</button>
+        <button type="button" class="boton" id="btnDescargarPdf">Descargar PDF</button>
+        <button type="button" class="primario" id="btnGuardarCv">Guardar cambios</button>
+      </div>
+    </form>
+  </dialog>
+
+</div><!-- /#appPrincipal -->
+
+<script>
+// Served from the same origin as the API (see app.mount in main.py), so
+// fetch() calls below use relative paths and never need to deal with CORS.
+
+const ESTADOS = ["guardada", "aplicado", "entrevista", "oferta", "rechazado"];
+const MODALIDADES = ["presencial", "remoto", "hibrido"];
+
+// --- Session (login) -------------------------------------------------------
+//
+// The backend can serve multiple independent accounts, so every request
+// needs to identify who is calling. The token (JWT) is stored in
+// localStorage rather than sessionStorage, so it survives closing the tab
+// or browser — a session only ends when the token itself expires (30
+// days, see settings.jwt_expira_minutos in the backend).
+
+const CLAVE_TOKEN = "jobtrack_token";
+
+function obtenerToken() {
+  return localStorage.getItem(CLAVE_TOKEN);
+}
+function guardarToken(token) {
+  localStorage.setItem(CLAVE_TOKEN, token);
+}
+function borrarToken() {
+  localStorage.removeItem(CLAVE_TOKEN);
+}
+
+class SesionExpiradaError extends Error {}
+
+// Every call to a protected route (everything except /auth/login and
+// /auth/registro, which issue the token in the first place) goes through
+// here instead of a plain fetch(): it attaches the Authorization header
+// automatically, and if the backend responds 401 (expired or invalid
+// token), it clears the session and returns to the login screen instead
+// of leaving the page showing stale or broken data.
+async function fetchAutenticado(url, opciones = {}) {
+  const headers = new Headers(opciones.headers || {});
+  const token = obtenerToken();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+
+  const respuesta = await fetch(url, { ...opciones, headers });
+  if (respuesta.status === 401) {
+    cerrarSesion();
+    throw new SesionExpiradaError("Sesión caducada o no válida.");
+  }
+  return respuesta;
+}
+
+function mostrarApp(email) {
+  document.getElementById("pantallaLogin").hidden = true;
+  document.getElementById("appPrincipal").hidden = false;
+  document.getElementById("emailSesion").textContent = email ?? "";
+}
+
+function mostrarLogin() {
+  document.getElementById("appPrincipal").hidden = true;
+  document.getElementById("pantallaLogin").hidden = false;
+  document.getElementById("loginPassword").value = "";
+}
+
+function cerrarSesion() {
+  borrarToken();
+  mostrarLogin();
+}
+
+document.getElementById("btnCerrarSesion").addEventListener("click", cerrarSesion);
+
+// The same form is used for both login and registration — "modoRegistro"
+// decides which route it posts to and which labels are shown, avoiding a
+// duplicate form for what is otherwise just a couple of strings and a URL.
+let modoRegistro = false;
+
+document.getElementById("alternarModoLogin").addEventListener("click", () => {
+  modoRegistro = !modoRegistro;
+  document.getElementById("tituloLogin").textContent = modoRegistro ? "Crear cuenta" : "Iniciar sesión";
+  document.getElementById("subtituloLogin").textContent = modoRegistro
+    ? "Regístrate para llevar tu propio seguimiento de candidaturas."
+    : "Entra con tu cuenta de JobTrack AI.";
+  document.getElementById("btnEnviarLogin").textContent = modoRegistro ? "Crear cuenta" : "Entrar";
+  document.getElementById("alternarModoLogin").textContent = modoRegistro
+    ? "¿Ya tienes cuenta? Inicia sesión"
+    : "¿No tienes cuenta? Regístrate";
+  document.getElementById("errorLogin").textContent = "";
+});
+
+document.getElementById("formLogin").addEventListener("submit", async (evento) => {
+  evento.preventDefault();
+  const email = document.getElementById("loginEmail").value;
+  const password = document.getElementById("loginPassword").value;
+  const errorLogin = document.getElementById("errorLogin");
+  const botonEnviar = document.getElementById("btnEnviarLogin");
+  errorLogin.textContent = "";
+
+  const restaurarBoton = conBotonCargando(botonEnviar, modoRegistro ? "Creando cuenta…" : "Entrando…");
+  try {
+    // Plain fetch() here, not fetchAutenticado: there is no token yet,
+    // and these are the only two routes that don't require one.
+    const respuesta = await fetch(modoRegistro ? "/auth/registro" : "/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!respuesta.ok) {
+      const error = await respuesta.json().catch(() => null);
+      // The 422 for "password too short" carries its detail as a list of
+      // validation errors rather than a plain string — a generic message
+      // is shown in that case.
+      const detalle = typeof error?.detail === "string" ? error.detail : null;
+      errorLogin.textContent = detalle || "No se pudo completar la operación — revisa los datos.";
+      return;
+    }
+
+    const { access_token } = await respuesta.json();
+    guardarToken(access_token);
+    await iniciarApp();
+  } finally {
+    restaurarBoton();
+  }
+});
+
+// On page load: if a token is stored, it's validated (GET /auth/yo)
+// before the app is shown — an expired token goes straight to the login
+// screen, instead of flashing an empty app first and failing on the
+// first request.
+async function iniciarApp() {
+  const token = obtenerToken();
+  if (!token) {
+    mostrarLogin();
+    return;
+  }
+
+  try {
+    const respuesta = await fetchAutenticado("/auth/yo");
+    const usuario = await respuesta.json();
+    mostrarApp(usuario.email);
+    cargar();
+    cargarEstadoCvBase();
+  } catch (error) {
+    if (!(error instanceof SesionExpiradaError)) throw error;
+    // SesionExpiradaError ya ha hecho cerrarSesion()/mostrarLogin() dentro
+    // de fetchAutenticado — aquí no hay nada más que hacer.
+  }
+}
+
+// Which application currently has the CV dialog open — needed by "Guardar
+// cambios", "Regenerar con IA" and the download link while the dialog is open.
+let candidaturaAbiertaId = null;
+
+async function cargar() {
+  const respuesta = await fetchAutenticado("/candidaturas/?limit=500");
+  const candidaturas = await respuesta.json();
+
+  const filas = document.getElementById("filas");
+  const vacio = document.getElementById("vacio");
+  filas.innerHTML = "";
+
+  vacio.hidden = candidaturas.length > 0;
+  for (const candidatura of candidaturas) {
+    filas.appendChild(construirFila(candidatura));
+  }
+}
+
+function construirFila(candidatura) {
+  const fila = document.createElement("tr");
+
+  fila.append(
+    celdaEditable(candidatura, "empresa"),
+    celdaEditable(candidatura, "puesto", { ancha: true }),
+    celdaEditable(candidatura, "ciudad"),
+    celdaEditable(candidatura, "salario"),
+    celdaEditable(candidatura, "tipo_contrato"),
+    celdaEditable(candidatura, "experiencia_requerida"),
+    celdaEditable(candidatura, "tecnologias", { ancha: true }),
+    celdaEditable(candidatura, "idiomas"),
+    celdaModalidad(candidatura),
+    celdaEditable(candidatura, "detalle_hibrido"),
+    // notas and fecha_seguimiento are user-entered only — never
+    // populated by AI extraction.
+    celdaEditable(candidatura, "notas", { ancha: true }),
+    celdaFechaEditable(candidatura, "fecha_seguimiento"),
+    celdaEstado(candidatura),
+    celdaTexto(candidatura.fecha),
+    celdaEnlace(candidatura.url_oferta),
+    celdaAcciones(candidatura),
+  );
+  return fila;
+}
+
+function celdaEditable(candidatura, campo, { ancha = false } = {}) {
+  const td = document.createElement("td");
+  const input = document.createElement("input");
+  input.value = candidatura[campo] ?? "";
+  // Fields like "puesto" or "tecnologias" often hold text too long for a
+  // narrow cell — title exposes the full value as a native tooltip.
+  input.title = input.value;
+  if (ancha) input.classList.add("campo-ancho");
+  // "change", not "input": the PATCH is sent when the field loses focus,
+  // not on every keystroke.
+  input.addEventListener("change", () => {
+    input.title = input.value;
+    actualizar(candidatura.id, { [campo]: input.value || null });
+  });
+  td.appendChild(input);
+  return td;
+}
+
+// States where follow-up no longer applies — the process has concluded.
+const ESTADOS_CERRADOS = ["oferta", "rechazado"];
+
+function celdaFechaEditable(candidatura, campo) {
+  const td = document.createElement("td");
+  const input = document.createElement("input");
+  input.type = "date";
+  input.value = candidatura[campo] ?? "";
+
+  // A follow-up date in the past on a still-open application is
+  // highlighted in red as a visual reminder to follow up.
+  const atrasada = candidatura[campo] && candidatura[campo] < new Date().toISOString().slice(0, 10)
+    && !ESTADOS_CERRADOS.includes(candidatura.estado);
+  if (atrasada) input.classList.add("fecha-atrasada");
+
+  input.addEventListener("change", () => {
+    actualizar(candidatura.id, { [campo]: input.value || null });
+  });
+  td.appendChild(input);
+  return td;
+}
+
+function celdaEstado(candidatura) {
+  const td = document.createElement("td");
+  const select = document.createElement("select");
+  for (const estado of ESTADOS) {
+    const opcion = document.createElement("option");
+    opcion.value = estado;
+    opcion.textContent = estado;
+    opcion.selected = estado === candidatura.estado;
+    select.appendChild(opcion);
+  }
+  select.addEventListener("change", () => actualizar(candidatura.id, { estado: select.value }));
+  td.appendChild(select);
+  return td;
+}
+
+function celdaModalidad(candidatura) {
+  // Same as celdaEstado(), with an extra blank option: unlike "estado"
+  // (always required), "modalidad" may be unknown when the AI extraction
+  // didn't find it in the offer.
+  const td = document.createElement("td");
+  const select = document.createElement("select");
+
+  const opcionVacia = document.createElement("option");
+  opcionVacia.value = "";
+  opcionVacia.textContent = "sin especificar";
+  opcionVacia.selected = !candidatura.modalidad;
+  select.appendChild(opcionVacia);
+
+  for (const modalidad of MODALIDADES) {
+    const opcion = document.createElement("option");
+    opcion.value = modalidad;
+    opcion.textContent = modalidad;
+    opcion.selected = modalidad === candidatura.modalidad;
+    select.appendChild(opcion);
+  }
+  select.addEventListener("change", () => {
+    actualizar(candidatura.id, { modalidad: select.value || null });
+  });
+  td.appendChild(select);
+  return td;
+}
+
+function celdaTexto(texto) {
+  const td = document.createElement("td");
+  td.textContent = texto;
+  return td;
+}
+
+function celdaEnlace(url) {
+  const td = document.createElement("td");
+  const enlace = document.createElement("a");
+  enlace.href = url;
+  enlace.target = "_blank";
+  enlace.rel = "noopener noreferrer";
+  enlace.textContent = "Ver oferta";
+  td.appendChild(enlace);
+  return td;
+}
+
+function celdaAcciones(candidatura) {
+  const td = document.createElement("td");
+
+  const botonCv = document.createElement("button");
+  botonCv.className = "generar";
+  // If a CV was already generated for this application, it isn't
+  // regenerated automatically (an AI call has a cost) — the editor opens
+  // with the saved version instead; regenerating is an explicit action
+  // inside the editor.
+  botonCv.textContent = candidatura.cv_generado_en ? "Editar CV" : "Generar CV";
+  botonCv.addEventListener("click", () => {
+    if (candidatura.cv_generado_en) {
+      abrirDialogoConCvExistente(candidatura.id);
+    } else {
+      generarCv(candidatura.id, botonCv);
+    }
+  });
+  td.appendChild(botonCv);
+
+  const boton = document.createElement("button");
+  boton.className = "peligro";
+  boton.textContent = "Borrar";
+  boton.addEventListener("click", () => borrar(candidatura.id));
+  td.appendChild(boton);
+
+  return td;
+}
+
+async function actualizar(id, cambios) {
+  await fetchAutenticado(`/candidaturas/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(cambios),
+  });
+}
+
+async function borrar(id) {
+  if (!confirm("¿Borrar esta candidatura?")) return;
+  await fetchAutenticado(`/candidaturas/${id}`, { method: "DELETE" });
+  cargar();
+}
+
+// --- Base CV (uploaded once, as PDF or Word) ---------------------
+
+async function cargarEstadoCvBase() {
+  const estado = document.getElementById("cvBaseEstado");
+  const respuesta = await fetchAutenticado("/cv-base/");
+
+  if (respuesta.status === 404) {
+    estado.textContent = "todavía no se ha subido ninguno";
+    return;
+  }
+  const cvBase = await respuesta.json();
+  const fecha = new Date(cvBase.subido_en).toLocaleString();
+  estado.textContent = `${cvBase.nombre_archivo} (subido ${fecha})`;
+}
+
+document.getElementById("btnSubirCvBase").addEventListener("click", async () => {
+  const input = document.getElementById("cvBaseArchivo");
+  const archivo = input.files[0];
+  if (!archivo) {
+    alert("Elige primero un archivo PDF o Word (.docx).");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("archivo", archivo);
+
+  // No manual Content-Type header: the browser sets it (with the correct
+  // multipart boundary) automatically for a FormData body.
+  const respuesta = await fetchAutenticado("/cv-base/", { method: "POST", body: formData });
+
+  if (respuesta.ok) {
+    input.value = "";
+    cargarEstadoCvBase();
+  } else {
+    const error = await respuesta.json().catch(() => null);
+    alert(error?.detail || "No se pudo subir el CV.");
+  }
+});
+
+// --- Tailored CV per application ------------------------------------
+
+// Shows a loading spinner and progress text on "boton" for the duration
+// of the call, restoring its original state when it finishes (whether it
+// succeeded or failed) — prevents a duplicate submission from a second
+// click while the first is still in flight.
+function conBotonCargando(boton, textoCargando) {
+  if (!boton) return () => {};
+  const textoOriginal = boton.textContent;
+  const deshabilitadoOriginal = boton.disabled;
+  boton.disabled = true;
+  boton.classList.add("cargando");
+  boton.textContent = textoCargando;
+  return () => {
+    boton.disabled = deshabilitadoOriginal;
+    boton.classList.remove("cargando");
+    boton.textContent = textoOriginal;
+  };
+}
+
+async function generarCv(id, boton) {
+  const restaurarBoton = conBotonCargando(boton, "Generando…");
+  try {
+    const respuesta = await fetchAutenticado(`/candidaturas/${id}/generar-cv`, { method: "POST" });
+    if (!respuesta.ok) {
+      const error = await respuesta.json().catch(() => null);
+      alert(error?.detail || "No se pudo generar el CV.");
+      return;
+    }
+    const cv = await respuesta.json();
+    rellenarDialogoCv(id, cv);
+    cargar(); // refreshes the row's button label to "Editar CV"
+  } finally {
+    restaurarBoton();
+  }
+}
+
+async function abrirDialogoConCvExistente(id) {
+  const respuesta = await fetchAutenticado(`/candidaturas/${id}/cv`);
+  if (!respuesta.ok) {
+    alert("No se pudo cargar el CV guardado.");
+    return;
+  }
+  rellenarDialogoCv(id, await respuesta.json());
+}
+
+// Downloads a fetch response as a file — shared by "Descargar PDF" and
+// "Descargar como Excel". Both routes require the Authorization header,
+// which a plain <a href="..."> cannot send, so the file is fetched with
+// fetchAutenticado and the download is triggered via a temporary blob link.
+async function descargarComoArchivo(url, nombrePorDefecto) {
+  const respuesta = await fetchAutenticado(url);
+  if (!respuesta.ok) {
+    const error = await respuesta.json().catch(() => null);
+    alert(error?.detail || "No se pudo descargar el archivo.");
+    return;
+  }
+
+  const cabeceraDisposicion = respuesta.headers.get("content-disposition") || "";
+  const coincidencia = cabeceraDisposicion.match(/filename="?([^"]+)"?/);
+  const nombreArchivo = coincidencia ? coincidencia[1] : nombrePorDefecto;
+
+  const blob = await respuesta.blob();
+  const urlBlob = URL.createObjectURL(blob);
+  const enlaceTemporal = document.createElement("a");
+  enlaceTemporal.href = urlBlob;
+  enlaceTemporal.download = nombreArchivo;
+  document.body.appendChild(enlaceTemporal);
+  enlaceTemporal.click();
+  enlaceTemporal.remove();
+  URL.revokeObjectURL(urlBlob);
+}
+
+document.getElementById("btnExportarExcel").addEventListener("click", () => {
+  descargarComoArchivo("/candidaturas/exportar", "candidaturas.xlsx");
+});
+
+document.getElementById("btnDescargarPdf").addEventListener("click", () => {
+  descargarComoArchivo(`/candidaturas/${candidaturaAbiertaId}/cv/pdf`, "cv.pdf");
+});
+
+function rellenarDialogoCv(id, cv) {
+  candidaturaAbiertaId = id;
+
+  document.getElementById("cvNombre").value = cv.nombre ?? "";
+  document.getElementById("cvEmail").value = cv.email ?? "";
+  document.getElementById("cvTelefono").value = cv.telefono ?? "";
+  document.getElementById("cvUbicacion").value = cv.ubicacion ?? "";
+  document.getElementById("cvLinkedin").value = cv.linkedin ?? "";
+  document.getElementById("cvResumen").value = cv.resumen ?? "";
+  document.getElementById("cvHabilidades").value = (cv.habilidades ?? []).join(", ");
+  document.getElementById("cvIdiomas").value = (cv.idiomas ?? []).join(", ");
+
+  const contenedorExperiencia = document.getElementById("cvExperiencia");
+  contenedorExperiencia.innerHTML = "";
+  for (const exp of cv.experiencia ?? []) {
+    contenedorExperiencia.appendChild(bloqueExperiencia(exp));
+  }
+
+  const contenedorEducacion = document.getElementById("cvEducacion");
+  contenedorEducacion.innerHTML = "";
+  for (const edu of cv.educacion ?? []) {
+    contenedorEducacion.appendChild(bloqueEducacion(edu));
+  }
+
+  document.getElementById("dialogoCvTitulo").textContent = `CV personalizado — ${cv.nombre || "sin nombre"}`;
+  document.getElementById("dialogoCv").showModal();
+}
+
+function bloqueExperiencia(exp = {}) {
+  const bloque = document.createElement("fieldset");
+  bloque.className = "bloque";
+  bloque.innerHTML = `
+    <legend>Experiencia</legend>
+    <div class="fila-grid">
+      <div class="campo"><label>Puesto</label><input class="cv-exp-puesto" value="${escaparAtributo(exp.puesto)}" /></div>
+      <div class="campo"><label>Empresa</label><input class="cv-exp-empresa" value="${escaparAtributo(exp.empresa)}" /></div>
+      <div class="campo"><label>Fechas</label><input class="cv-exp-fechas" value="${escaparAtributo(exp.fechas)}" /></div>
+      <div class="campo"><label>Ubicación</label><input class="cv-exp-ubicacion" value="${escaparAtributo(exp.ubicacion)}" /></div>
+    </div>
+    <div class="campo">
+      <label>Logros (uno por línea)</label>
+      <textarea class="cv-exp-logros" rows="3">${escaparTexto((exp.logros ?? []).join("\n"))}</textarea>
+    </div>
+    <button type="button" class="peligro">Eliminar esta experiencia</button>
+  `;
+  bloque.querySelector("button").addEventListener("click", () => bloque.remove());
+  return bloque;
+}
+
+function bloqueEducacion(edu = {}) {
+  const bloque = document.createElement("fieldset");
+  bloque.className = "bloque";
+  bloque.innerHTML = `
+    <legend>Educación</legend>
+    <div class="fila-grid">
+      <div class="campo"><label>Título</label><input class="cv-edu-titulo" value="${escaparAtributo(edu.titulo)}" /></div>
+      <div class="campo"><label>Institución</label><input class="cv-edu-institucion" value="${escaparAtributo(edu.institucion)}" /></div>
+      <div class="campo"><label>Fechas</label><input class="cv-edu-fechas" value="${escaparAtributo(edu.fechas)}" /></div>
+      <div class="campo"><label>Detalle</label><input class="cv-edu-detalle" value="${escaparAtributo(edu.detalle)}" /></div>
+    </div>
+    <button type="button" class="peligro">Eliminar esta educación</button>
+  `;
+  bloque.querySelector("button").addEventListener("click", () => bloque.remove());
+  return bloque;
+}
+
+function escaparAtributo(texto) {
+  const div = document.createElement("div");
+  div.textContent = texto ?? "";
+  return div.innerHTML.replace(/"/g, "&quot;");
+}
+
+function escaparTexto(texto) {
+  const div = document.createElement("div");
+  div.textContent = texto ?? "";
+  return div.innerHTML;
+}
+
+// Rebuilds the CVGenerado object from the dialog's current field values —
+// the inverse of rellenarDialogoCv().
+function leerCvDelDialogo() {
+  const experiencia = [...document.querySelectorAll("#cvExperiencia fieldset")].map((bloque) => ({
+    puesto: bloque.querySelector(".cv-exp-puesto").value,
+    empresa: bloque.querySelector(".cv-exp-empresa").value,
+    fechas: bloque.querySelector(".cv-exp-fechas").value,
+    ubicacion: bloque.querySelector(".cv-exp-ubicacion").value || null,
+    logros: bloque.querySelector(".cv-exp-logros").value.split("\n").map((l) => l.trim()).filter(Boolean),
+  }));
+
+  const educacion = [...document.querySelectorAll("#cvEducacion fieldset")].map((bloque) => ({
+    titulo: bloque.querySelector(".cv-edu-titulo").value,
+    institucion: bloque.querySelector(".cv-edu-institucion").value,
+    fechas: bloque.querySelector(".cv-edu-fechas").value,
+    detalle: bloque.querySelector(".cv-edu-detalle").value || null,
+  }));
+
+  return {
+    nombre: document.getElementById("cvNombre").value,
+    email: document.getElementById("cvEmail").value || null,
+    telefono: document.getElementById("cvTelefono").value || null,
+    ubicacion: document.getElementById("cvUbicacion").value || null,
+    linkedin: document.getElementById("cvLinkedin").value || null,
+    resumen: document.getElementById("cvResumen").value,
+    experiencia,
+    educacion,
+    habilidades: document.getElementById("cvHabilidades").value.split(",").map((h) => h.trim()).filter(Boolean),
+    idiomas: document.getElementById("cvIdiomas").value.split(",").map((i) => i.trim()).filter(Boolean),
+  };
+}
+
+document.getElementById("btnAnadirExperiencia").addEventListener("click", () => {
+  document.getElementById("cvExperiencia").appendChild(bloqueExperiencia());
+});
+
+document.getElementById("btnAnadirEducacion").addEventListener("click", () => {
+  document.getElementById("cvEducacion").appendChild(bloqueEducacion());
+});
+
+document.getElementById("btnGuardarCv").addEventListener("click", async () => {
+  const respuesta = await fetchAutenticado(`/candidaturas/${candidaturaAbiertaId}/cv`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(leerCvDelDialogo()),
+  });
+  if (respuesta.ok) {
+    document.getElementById("dialogoCv").close();
+  } else {
+    alert("No se pudo guardar el CV.");
+  }
+});
+
+document.getElementById("btnRegenerarCv").addEventListener("click", async (evento) => {
+  if (!confirm("Esto vuelve a pedirle el CV a la IA desde cero y pierde tus ediciones manuales. ¿Seguir?")) return;
+  await generarCv(candidaturaAbiertaId, evento.currentTarget);
+});
+
+document.getElementById("btnCerrarDialogo").addEventListener("click", () => {
+  document.getElementById("dialogoCv").close();
+});
+
+document.getElementById("btnActualizar").addEventListener("click", cargar);
+
+document.getElementById("nuevaForm").addEventListener("submit", async (evento) => {
+  evento.preventDefault();
+  const datos = Object.fromEntries(new FormData(evento.target).entries());
+  datos.ciudad = datos.ciudad || null;
+  datos.salario = datos.salario || null;
+
+  const respuesta = await fetchAutenticado("/candidaturas/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(datos),
+  });
+
+  if (respuesta.ok) {
+    evento.target.reset();
+    cargar();
+  } else {
+    alert("No se pudo crear la candidatura — revisa que la URL sea válida.");
+  }
+});
+
+iniciarApp();
+</script>
+</body>
+</html>
