@@ -77,8 +77,14 @@
 
   /* Login/registration screen, shown when there is no active session.
      Full-screen with a centered card, since the app is multi-tenant and
-     nothing is shown until the user is identified. */
-  #pantallaLogin {
+     nothing is shown until the user is identified.
+     The layout rules live under ":not([hidden])" rather than directly on
+     the id selector: an id selector setting "display" outranks the
+     browser's built-in "[hidden] { display: none }" rule, so a plain
+     "#pantallaLogin { display: flex }" would keep this screen visible
+     even while its "hidden" attribute is set — showing it on top of the
+     logged-in app underneath. */
+  #pantallaLogin:not([hidden]) {
     min-height: 100vh; display: flex; align-items: center; justify-content: center;
     margin: -24px; padding: 24px; box-sizing: border-box;
   }
