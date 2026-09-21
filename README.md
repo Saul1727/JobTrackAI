@@ -102,75 +102,46 @@ pytest
    del backend (`http://127.0.0.1:8000` en local) y, a continuación,
    iniciar sesión o registrar una cuenta.
 
-## Despliegue en producción
+## Instancia en producción
 
-El backend puede desplegarse una única vez y ser usado por varias
-personas, cada una con su propia cuenta. El despliegue requiere dos
-servicios gratuitos, sin necesidad de tarjeta de crédito:
+El backend está desplegado y accesible en:
 
-- **[Neon](https://neon.com)** — base de datos PostgreSQL gestionada.
-  Necesaria porque el disco de la mayoría de plataformas de hosting
-  gratuitas no es persistente: un redeploy borraría una base de datos
-  SQLite local. Neon conserva los datos de forma permanente.
-- **[Render](https://render.com)** — hosting del backend (FastAPI). En
-  el plan gratuito, el servicio entra en reposo tras ~15 minutos de
-  inactividad y tarda algo más de un minuto en responder a la primera
-  petición tras despertar.
+**https://jobtrack-ai-dcmu.onrender.com/panel/**
 
-### 1. Base de datos
+Es un único despliegue multiusuario: cualquier persona puede registrar su
+propia cuenta ahí directamente, sin necesidad de instalar ni configurar
+nada. Para usar también la extensión de Chrome, basta con descargar este
+repositorio (**Code → Download ZIP**, o `git clone`) y seguir los pasos
+de la sección [Extensión de Chrome](#extensión-de-chrome) indicando esa
+URL como backend. No se requiere ninguna cuenta propia de Render, Neon,
+Gemini ni Groq para usar la aplicación — esas son solo necesarias para
+alojar el backend.
 
-1. Crear una cuenta en [neon.com](https://neon.com).
-2. Crear un proyecto nuevo.
-3. Copiar la cadena de conexión (`postgresql://usuario:contraseña@...`).
-   Se usa tal cual en el siguiente paso, sin modificarla.
+En el plan gratuito de Render, el servicio entra en reposo tras ~15
+minutos de inactividad y tarda algo más de un minuto en responder a la
+primera petición tras despertar.
 
-### 2. Repositorio en GitHub
+### Desplegar una instancia propia
 
-```bash
-git init
-git add .
-git commit -m "Initial commit"
-git remote add origin https://github.com/<usuario>/<repositorio>.git
-git push -u origin main
-```
+El repositorio incluye un [`render.yaml`](render.yaml) que despliega el
+backend como Blueprint en [Render](https://render.com). En producción se
+usa PostgreSQL en lugar de SQLite (por ejemplo, [Neon](https://neon.com),
+en su capa gratuita), ya que el disco de la mayoría de plataformas de
+hosting gratuitas no es persistente y un redeploy borraría una base de
+datos SQLite local.
 
-### 3. Backend en Render
-
-1. Crear una cuenta en [render.com](https://render.com) (puede vincularse
-   directamente con GitHub).
-2. **Dashboard → New → Blueprint**, y seleccionar el repositorio. Render
-   detecta `render.yaml` automáticamente y propone la configuración del
-   servicio.
-3. Al crear el servicio se solicitan tres variables de entorno (no se
-   guardan en el repositorio, que es público):
-   - `DATABASE_URL`: la cadena de conexión de Neon.
+1. Crear una base de datos Postgres (p. ej. en Neon) y copiar su cadena
+   de conexión.
+2. En Render: **Dashboard → New → Blueprint**, y seleccionar este
+   repositorio — `render.yaml` configura el servicio automáticamente.
+3. Al crear el servicio se solicitan las variables de entorno (no se
+   guardan en el repositorio):
+   - `DATABASE_URL`: la cadena de conexión de la base de datos.
    - `GEMINI_API_KEY`: clave de [aistudio.google.com](https://aistudio.google.com).
    - `GROQ_API_KEY`: opcional, respaldo si Gemini falla.
-4. El primer despliegue tarda unos minutos. El backend queda accesible
-   en una URL del tipo `https://<nombre-del-servicio>.onrender.com`.
-5. Verificar que `https://<url>/panel` carga correctamente y permite
-   registrar una cuenta.
-
-### 4. Acceso de otros usuarios
-
-Al ser un repositorio público, cada persona puede:
-
-1. Abrir `https://<url>/panel` y registrar su propia cuenta — no
-   requiere ninguna configuración adicional.
-2. Para usar la extensión de Chrome: descargar el repositorio (botón
-   **Code → Download ZIP** en GitHub, o `git clone`), cargar la carpeta
-   `extension/` como extensión sin empaquetar (ver más arriba), e
-   introducir la URL del backend desplegado al abrir el icono por
-   primera vez.
-
-Ninguna cuenta adicional de Render, Neon, Gemini o Groq es necesaria por
-parte de quienes solo usan la aplicación.
-
-### Actualizaciones posteriores
-
-Cualquier cambio subido a la rama conectada en Render (`git push`)
-dispara un redeploy automático. La base de datos en Neon no se ve
-afectada por un redeploy.
+   - `SECRET_KEY` se genera automáticamente.
+4. Cualquier `git push` a la rama conectada dispara un redeploy
+   automático; la base de datos no se ve afectada.
 
 ## Seguridad
 
